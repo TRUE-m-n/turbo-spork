@@ -1,0 +1,18 @@
+{
+    "robot": {
+        "x": -8.505911865234374,
+        "y": -0.1839416980743407,
+        "confidence": 0.7636
+    },
+    "person": {
+        "x": -0.9059118652343745,
+        "y": 2.6160583019256594,
+        "confidence": 0.9608
+    },
+    "person_uav": {
+        "x": 0.5839416980743408,
+        "y": 6.994088134765626
+    },
+    "map_pgm": "./height_maps_final/processed_map.pgm",
+    "map_yaml": "./height_maps_final/processed_map.yaml"
+}

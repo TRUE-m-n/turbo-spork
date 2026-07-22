@@ -1,0 +1,76 @@
+{
+    "VisionSensors":[
+        {//小车单线激光雷达
+            "SeqID":0, //视觉传感器序号0 1 2 3 ...排序。如果填0，则自动递增排序。
+            "TypeID":20, //输出点云为激光雷达坐标系
+            "TargetCopter":2, //传感器绑定的CopterID号
+            "TargetMountType":0,
+            "DataWidth":900, //激光雷达一个ring内的点云个数
+            "DataHeight":1,//激光雷达线束数量
+            "DataCheckFreq":20,//点云发布频率(hz)
+            "SendProtocol":[1,127,0,0,1,9999,0,0],
+            "CameraFOV":90, //在激光雷达传感器上无作用
+            "EularOrQuat":0,
+            "SensorPosXYZ":[0,0,-0.1], 
+            "SensorAngQuat":[0,0,0,0], 
+            "SensorAngEular":[0,0,0],
+            "otherParams":[200,0.05,-180,180,0,0,0,1,0,0,0,0,0,0,0,0] //[激光最远距离(m),精度(m),水平扫描角度 下限值(度),水平扫描角度上限值(度),垂直扫描角度下限值(度),垂直扫描角度上限值(度),预留,预留];
+        },
+        { //小车的前视相机
+            "SeqID":1,
+            "TypeID":1,
+            "TargetCopter":2,
+            "TargetMountType":0,
+            "DataWidth":640,
+            "DataHeight":480,
+            "DataCheckFreq":30,
+            "SendProtocol":[1,127,0,0,1,9998,0,0],
+            "CameraFOV":90,
+            "SensorPosXYZ":[0.2,0,-0.8],
+            "SensorAngEular":[0,0,0],
+            "otherParams":[0,0,0,0,0,0,0,0]
+        },
+        {//飞机的前视相机
+            "SeqID":2,
+            "TypeID":1,
+            "TargetCopter":1,
+            "TargetMountType":0,
+            "DataWidth":640,
+            "DataHeight":480,
+            "DataCheckFreq":30,
+            "SendProtocol":[1,127,0,0,1,9996,0,0],
+            "CameraFOV":90,
+            "SensorPosXYZ":[0.2,0,0],
+            "SensorAngEular":[0,0,0],
+            "otherParams":[0,0,0,0,0,0,0,0]
+        },
+        {//飞机的下视相机
+            "SeqID":3,
+            "TypeID":1,
+            "TargetCopter":1,
+            "TargetMountType":0,
+            "DataWidth":640,
+            "DataHeight":480,
+            "DataCheckFreq":30,
+            "SendProtocol":[1,127,0,0,1,9995,0,0],
+            "CameraFOV":90,
+            "SensorPosXYZ":[0,0,0],
+            "SensorAngEular":[0,-90,0],
+            "otherParams":[0,0,0,0,0,0,0,0]
+        },
+        {//飞机的mid360激光雷达
+            "SeqID":4,
+            "TypeID":23,
+            "TargetCopter":1,
+            "TargetMountType":0,
+            "DataWidth":64,
+            "DataHeight":272,
+            "DataCheckFreq":10,
+            "SendProtocol":[1,127,0,0,1,9994,0,0],
+            "CameraFOV":0,
+            "SensorPosXYZ":[0,0,-0.3],
+            "SensorAngEular":[0,180,0],
+            "otherParams":[100,0,0,0,0,0,0,0]
+        }
+    ]
+}
