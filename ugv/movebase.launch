@@ -1,0 +1,52 @@
+<launch>
+  <!-- 1. 地图服务器 -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="/home/ubuntu/PX4PSP/demo/height_maps_final/processed_map.yaml"/>
+
+
+  <!-- 2. 静态变换：base_link → livox_frame（请根据实际安装位置修改参数） -->
+  <node pkg="tf" type="static_transform_publisher" name="base_to_lidar"
+        args="0.2 0 0.1 0 0 0 base_link livox_frame 100" />
+
+
+
+  <!-- 3. AMCL 定位（核心：发布 map → odom） -->
+  <node pkg="amcl" type="amcl" name="amcl" output="screen">
+    <param name="odom_frame_id" value="odom"/>
+    <param name="base_frame_id" value="base_link"/>
+    <param name="global_frame_id" value="map"/>
+    <param name="laser_frame_id" value="livox_frame"/>
+    <param name="transform_tolerance" value="0.5"/>
+    <remap from="/scan" to="/rflysim/sensor0/vehicle_lidar_points" />
+    <param name="tf_broadcast" value="true"/>
+    
+    <!-- 初始位姿（请根据校车实际地图位置修改 x, y, a） -->
+    <param name="initial_pose_x" value="-8.93"/>
+    <param name="initial_pose_y" value="-0.20"/>
+    <param name="initial_pose_a" value="0.0"/>
+    <param name="initial_cov_xx" value="0.25"/>
+    <param name="initial_cov_yy" value="0.25"/>
+    <param name="initial_cov_aa" value="0.0685"/>
+
+  </node>
+
+
+
+  <!-- 5. move_base (云平台CPU优化：降低频率，移除rviz) -->
+  <node pkg="move_base" type="move_base" name="move_base" output="screen">
+
+    <rosparam file="/home/ubuntu/PX4PSP/demo/ugv/movebase_params/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="/home/ubuntu/PX4PSP/demo/ugv/movebase_params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="/home/ubuntu/PX4PSP/demo/ugv/movebase_params/global_costmap_params.yaml" command="load" />
+    <rosparam file="/home/ubuntu/PX4PSP/demo/ugv/movebase_params/local_costmap_params.yaml" command="load" />
+    <rosparam file="/home/ubuntu/PX4PSP/demo/ugv/movebase_params/dwa_local_planner_params.yaml" command="load" />
+    <param name="controller_frequency" value="4.0" />
+    <param name="planner_frequency" value="0.3" />
+  </node>
+
+  <!-- rviz 已注释：云平台 CPU 资源有限，调试时可取消注释 -->
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d /root/gpufree-data/ws_livox/src/movebase/launch/rviz.rviz" output="screen"/> -->
+
+
+
+</launch>

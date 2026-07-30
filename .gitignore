@@ -1,1 +1,8 @@
+# IDE配置
 .idea/
+*.iml
+# Python缓存
+__pycache__/
+*.pyc
+# Jupyter缓存
+**/.ipynb_checkpoints
