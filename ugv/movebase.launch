@@ -82,7 +82,7 @@
 
 
 
-    
+
 
 
 
@@ -186,7 +186,7 @@
 
 
 
-  
+
 
 
 
@@ -198,11 +198,15 @@
 
 
 
-    <param name="clearing_rotation_allowed" value="true" />
+    <param name="clearing_rotation_allowed" value="false" />
 
 
 
     <param name="shutdown_costmaps" value="false" />
+    <!-- === 新增全局规划器参数（用于缩短路径）=== -->
+    <param name="base_global_planner" value="global_planner/GlobalPlanner"/>
+    <param name="GlobalPlanner/use_dijkstra" value="true"/>
+    <param name="GlobalPlanner/old_navfn_behavior" value="false"/>
 
 
 

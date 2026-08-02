@@ -3,7 +3,6 @@
 # -*- coding: utf-8 -*-
 
 
-
 import subprocess
 
 import sys
@@ -45,15 +44,13 @@ from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandBool, SetMode
 
 import UE4CtrlAPI as UE4CtrlAPI
-
-
+import numpy as np
 
 # ====================== 新增：导入子目标模块 ======================
 
 from .subgoal_dwa import SubGoalManager, generate_straight_path
 
 # ================================================================
-
 
 
 # ====================== 配置路径 ======================
@@ -67,11 +64,7 @@ shutdown_flag = False
 launch_process = None
 
 
-
-
-
 def signal_handler(sig, frame):
-
     global shutdown_flag, launch_process
 
     rospy.loginfo("收到中断信号，正在关闭...")
@@ -79,7 +72,6 @@ def signal_handler(sig, frame):
     shutdown_flag = True
 
     if launch_process and launch_process.poll() is None:
-
         launch_process.terminate()
 
         launch_process.wait()
@@ -89,13 +81,9 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-
-
-
 # ====================== 新增：调用 move_base 全局规划器（C++ Dijkstra/A*）======================
 
 def get_global_path_from_movebase(start_x, start_y, goal_x, goal_y, tolerance=0.1):
-
     """
 
     调用 /move_base/make_plan 服务获取全局路径。
@@ -110,8 +98,6 @@ def get_global_path_from_movebase(start_x, start_y, goal_x, goal_y, tolerance=0.
 
         make_plan = rospy.ServiceProxy('/move_base/make_plan', GetPlan)
 
-
-
         req = GetPlanRequest()
 
         req.start.header.frame_id = "map"
@@ -124,8 +110,6 @@ def get_global_path_from_movebase(start_x, start_y, goal_x, goal_y, tolerance=0.
 
         req.start.pose.orientation.w = 1.0
 
-
-
         req.goal.header.frame_id = "map"
 
         req.goal.header.stamp = rospy.Time.now()
@@ -136,21 +120,14 @@ def get_global_path_from_movebase(start_x, start_y, goal_x, goal_y, tolerance=0.
 
         req.goal.pose.orientation.w = 1.0
 
-
-
         req.tolerance = tolerance
-
-
 
         resp = make_plan(req)
 
         if not resp.plan.poses:
-
             rospy.logwarn("make_plan 返回空路径")
 
             return []
-
-
 
         # 采样：约每 0.4m 保留一个路径点，避免太密集
 
@@ -163,20 +140,14 @@ def get_global_path_from_movebase(start_x, start_y, goal_x, goal_y, tolerance=0.
             pt = (pose.pose.position.x, pose.pose.position.y)
 
             if last_pt is None or math.hypot(pt[0] - last_pt[0], pt[1] - last_pt[1]) >= 0.4:
-
                 path.append(pt)
 
                 last_pt = pt
 
-
-
         # 确保终点在路径中
 
         if not path or math.hypot(path[-1][0] - goal_x, path[-1][1] - goal_y) > 0.1:
-
             path.append((goal_x, goal_y))
-
-
 
         rospy.loginfo(f"✅ 全局规划完成，路径点数: {len(path)}")
 
@@ -190,10 +161,8 @@ def get_global_path_from_movebase(start_x, start_y, goal_x, goal_y, tolerance=0.
 
         return []
 
+
 # ===================================================================================
-
-
-
 
 
 class UGVController:
@@ -203,7 +172,6 @@ class UGVController:
         # 兼容模块调用
 
         if not rospy.core.is_initialized():
-
             rospy.init_node("ugv_controller_node", anonymous=True, disable_signals=True)
 
         self.target_x = target_x
@@ -254,13 +222,9 @@ class UGVController:
 
         rospy.loginfo("UGV Controller 初始化完成，等待飞控连接...")
 
-
-
     def state_cb(self, msg):
 
         self.current_state = msg
-
-
 
     def cloud_callback(self, cloud_msg):
 
@@ -305,33 +269,24 @@ class UGVController:
             if 0 <= idx < beam_count and scan.range_min <= r <= scan.range_max:
 
                 if math.isnan(scan.ranges[idx]) or r < scan.ranges[idx]:
-
                     scan.ranges[idx] = r
-
-
 
         # 检查是否有有效数据，避免发布全 nan 的 scan
 
         valid_count = sum(1 for r in scan.ranges if not math.isnan(r))
 
         if valid_count == 0:
-
             rospy.logwarn_throttle(5.0, "cloud_callback: 无有效点云数据，跳过本次 LaserScan 发布")
 
             return
 
-
-
         self.scan_pub.publish(scan)
-
-
 
     def odom_callback(self, odom_msg):
 
         # (保持原逻辑不变)
 
         if rospy.is_shutdown():
-
             return
 
         t = TransformStamped()
@@ -354,8 +309,6 @@ class UGVController:
 
         self.tf_broadcaster.sendTransform(t)
 
-
-
     def cmd_vel_callback(self, msg):
 
         # 只保存原始指令，不在此处发布
@@ -364,17 +317,13 @@ class UGVController:
 
         self.last_cmd_vel_time = rospy.Time.now()
 
-
-
     def cmd_vel_loop(self):
 
         rate = rospy.Rate(20)
 
-        w_thresh = 0.2      # 超过此值开始降线速度
+        w_thresh = 0.2  # 超过此值开始降线速度
 
-        w_max = 0.3         # 超过此值线速度降为0
-
-
+        w_max = 0.3  # 超过此值线速度降为0
 
         while not rospy.is_shutdown() and not shutdown_flag:
 
@@ -392,17 +341,12 @@ class UGVController:
 
                 final_w = raw.angular.z
 
-
-
                 # 转弯时降低线速度（保留原逻辑）
 
                 if abs(final_w) > w_thresh:
-
                     factor = max(0.0, 1.0 - (abs(final_w) - w_thresh) / (w_max - w_thresh))
 
                     final_v = final_v * factor
-
-
 
                 twist_out.linear.x = final_v
 
@@ -416,13 +360,9 @@ class UGVController:
 
                 twist_out.angular.z = 0.0
 
-
-
             self.vel_pub.publish(twist_out)
 
             rate.sleep()
-
-
 
     def setup_offboard_and_arm(self):
 
@@ -435,7 +375,6 @@ class UGVController:
         last_request = rospy.Time.now()
 
         while not rospy.is_shutdown() and not self.current_state.connected:
-
             rospy.loginfo_throttle(1, "等待 UGV 飞控连接...")
 
             rate.sleep()
@@ -447,7 +386,6 @@ class UGVController:
         for i in range(100):
 
             if rospy.is_shutdown():
-
                 return False
 
             self.vel_pub.publish(Twist())
@@ -463,7 +401,6 @@ class UGVController:
             if self.current_state.mode != "OFFBOARD":
 
                 if (rospy.Time.now() - last_request) > rospy.Duration(1.0):
-
                     self.set_mode_client(custom_mode="OFFBOARD")
 
                     last_request = rospy.Time.now()
@@ -485,7 +422,6 @@ class UGVController:
             if not self.current_state.armed:
 
                 if (rospy.Time.now() - last_request) > rospy.Duration(1.0):
-
                     self.arming_client(value=True)
 
                     last_request = rospy.Time.now()
@@ -500,8 +436,6 @@ class UGVController:
 
         return True
 
-
-
     def is_goal_valid(self, x, y):
 
         """检查目标点是否在自由区域"""
@@ -512,25 +446,18 @@ class UGVController:
 
             costmap = rospy.wait_for_message('/move_base/global_costmap/costmap', OccupancyGrid, timeout=2.0)
 
-
-
             # 转换坐标到地图索引
 
             map_x = int((x - costmap.info.origin.position.x) / costmap.info.resolution)
 
             map_y = int((y - costmap.info.origin.position.y) / costmap.info.resolution)
 
-
-
             # 检查边界
 
             if map_x < 0 or map_x >= costmap.info.width or map_y < 0 or map_y >= costmap.info.height:
-
                 rospy.logwarn(f"目标点 ({x}, {y}) 超出地图边界")
 
                 return False
-
-
 
             # 检查代价
 
@@ -540,7 +467,7 @@ class UGVController:
 
                 cost = costmap.data[index]
 
-                if cost >= 100:  # 致命障碍或膨胀区（100以上是障碍，-1是未知）
+                if cost >= 127:  # 致命障碍或膨胀区（100以上是障碍，-1是未知）
 
                     rospy.logwarn(f"目标点 ({x}, {y}) 在障碍物内，代价值: {cost}")
 
@@ -556,15 +483,11 @@ class UGVController:
 
             return True  # 默认允许，避免阻塞
 
-
-
     def move_to_goal(self, x, y, yaw=0.0, timeout=120.0):
 
         """使用子目标的导航方法（替代原有直接发终点）"""
 
         rospy.loginfo(f"🚀 子目标导航至终点: ({x:.2f}, {y:.2f})")
-
-
 
         # ===== 新增：终点预检查，不可达则搜索附近替代点 =====
 
@@ -576,16 +499,13 @@ class UGVController:
 
             for r in [0.3, 0.5, 0.8, 1.0, 1.5]:
 
-                for angle in [0, math.pi/4, math.pi/2, 3*math.pi/4, math.pi,
-
-                              -math.pi/4, -math.pi/2, -3*math.pi/4]:
+                for angle in np.linspace(0, 2*math.pi, 12, endpoint=False):
 
                     tx = x + r * math.cos(angle)
 
                     ty = y + r * math.sin(angle)
 
                     if self.is_goal_valid(tx, ty):
-
                         rospy.loginfo(f"找到替代目标点: ({tx:.2f}, {ty:.2f})")
 
                         x, y = tx, ty
@@ -595,18 +515,13 @@ class UGVController:
                         break
 
                 if found:
-
                     break
 
             if not found:
-
-                rospy.logerr("附近无可达目标点，导航失败")
-
-                return False
+                rospy.logwarn("附近无可达目标点，继续使用原目标")
+                # 不返回，继续执行
 
         # ===== 终点预检查完成 =====
-
-
 
         # 清除旧costmap，强制重新规划（只在开始时清一次）
 
@@ -626,21 +541,15 @@ class UGVController:
 
             pass
 
-
-
         # 等待 costmap 重建
 
         rospy.loginfo("等待 costmap 重建...")
 
         rospy.sleep(1.0)
 
-
-
         # ===== 新增：子目标管理器 =====
 
-        subgoal_mgr = SubGoalManager(lookahead_distance=2.0, subgoal_tolerance=0.5)
-
-
+        subgoal_mgr = SubGoalManager(lookahead_distance=100.0, subgoal_tolerance=0.5)
 
         # 获取当前位置，生成全局路径
 
@@ -658,19 +567,13 @@ class UGVController:
 
             start_x, start_y = 0, 0
 
-
-
         # 用 move_base make_plan 获取全局路径
 
         path = get_global_path_from_movebase(start_x, start_y, x, y, tolerance=0.1)
 
         if not path:
-
-            rospy.logwarn("make_plan 返回空，降级为直线路径")
-
-            path = generate_straight_path(start_x, start_y, x, y, num_points=30)
-
-
+            rospy.logwarn("make_plan 返回空，直接使用最终目标")
+            path = [(start_x, start_y), (x, y)]  # 简单两点路径，子目标即终点
 
         subgoal_mgr.set_global_path(path)
 
@@ -679,8 +582,6 @@ class UGVController:
         rospy.loginfo(f"全局路径生成完成，起点({start_x:.2f},{start_y:.2f})，终点({x:.2f},{y:.2f})")
 
         # ===== 子目标管理器初始化完成 =====
-
-
 
         # 循环追踪子目标
 
@@ -691,8 +592,6 @@ class UGVController:
         last_subgoal = None
 
         nav_success = False
-
-
 
         while not rospy.is_shutdown():
 
@@ -710,18 +609,13 @@ class UGVController:
 
                 continue
 
-
-
             # 获取当前子目标
 
             subgoal = subgoal_mgr.get_current_subgoal(rx, ry)
 
-
-
             # 检查是否到达终点
 
             if subgoal_mgr.is_final_goal_reached(rx, ry):
-
                 rospy.loginfo("✅ 到达终点")
 
                 self.move_base_client.cancel_all_goals()
@@ -730,19 +624,14 @@ class UGVController:
 
                 break
 
-
-
             # 检查超时
 
             if (rospy.Time.now() - start_time).to_sec() > timeout:
-
                 rospy.logwarn("   navigation timed out")
 
                 self.move_base_client.cancel_all_goals()
 
                 break
-
-
 
             # ================== 新增：ABORTED 检测与路径跳过 ==================
 
@@ -758,8 +647,6 @@ class UGVController:
 
                     rospy.sleep(0.5)
 
-
-
                     # 从路径中移除被 ABORT 的子目标及之前的所有点
 
                     new_path = []
@@ -769,19 +656,16 @@ class UGVController:
                     for p in path:
 
                         if not skipped and math.hypot(p[0] - last_subgoal[0], p[1] - last_subgoal[1]) < 0.2:
-
                             skipped = True
 
                             continue
 
                         if skipped:
-
                             new_path.append(p)
 
                     path = new_path
 
                     if not path:
-
                         rospy.logerr("所有子目标均被拒绝，导航失败")
 
                         return False
@@ -790,31 +674,22 @@ class UGVController:
 
                     rospy.loginfo(f"跳过失败子目标，剩余路径点数: {len(path)}")
 
-
-
                     last_subgoal = None
 
                     continue
 
             # =================================================================
 
-
-
             # 如果子目标变化，发送新目标给move_base
 
             if last_subgoal != subgoal and subgoal is not None:
-
                 rospy.loginfo(f"追踪子目标: ({subgoal[0]:.2f}, {subgoal[1]:.2f})")
-
-
 
                 # 取消旧目标
 
                 self.move_base_client.cancel_all_goals()
 
                 rospy.sleep(0.2)  # 给cancel一点时间
-
-
 
                 # 发送子目标
 
@@ -834,28 +709,18 @@ class UGVController:
 
                 goal.target_pose.pose.orientation.w = quat[3]
 
-
-
                 self.move_base_client.send_goal(goal)
 
                 last_subgoal = subgoal
 
-
-
             rate.sleep()
 
-
-
         return nav_success
-
-
-
 
 
 # ================== 模块化调用接口 ==================
 
 def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
-
     """
 
     外部调用接口：执行无人车任务
@@ -889,8 +754,8 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
         valid_ranges = [r for r in scan_msg.ranges if not math.isnan(r) and scan_msg.range_min < r < scan_msg.range_max]
 
         if len(valid_ranges) == 0:
-
-            rospy.logerr("❌ LaserScan 数据无效（ranges 全为 nan），请检查原始点云 /rflysim/sensor0/vehicle_lidar 是否有数据！")
+            rospy.logerr(
+                "❌ LaserScan 数据无效（ranges 全为 nan），请检查原始点云 /rflysim/sensor0/vehicle_lidar 是否有数据！")
 
             return False
 
@@ -921,7 +786,6 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
 
             if rospy.Time.now() > timeout_time:
-
                 rospy.logerr("❌ 等待 TF 超时，请检查 /rflysim/uav2/local/odom 话题是否有数据！")
 
                 return False
@@ -935,8 +799,6 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
         print("启动 movebase...")
 
         launch_process = subprocess.Popen(["roslaunch", MOVE_BASE_LAUNCH])
-
-
 
         # 先等待 AMCL 发布 map->odom TF
 
@@ -965,10 +827,7 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
                 spin_rate.sleep()
 
         if not map_odom_ready:
-
             rospy.logwarn("⚠️ map->odom TF 等待超时，继续尝试启动 move_base...")
-
-
 
         # 等待 move_base action server 就绪（超时增加到 60 秒）
 
@@ -977,7 +836,6 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
         move_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
 
         if not move_client.wait_for_server(rospy.Duration(60.0)):
-
             rospy.logerr("❌ move_base 启动超时")
 
             return False
@@ -990,17 +848,12 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
 
         return False
 
-
-
     # 5. 执行解锁流程
 
     if not controller.setup_offboard_and_arm():
-
         rospy.logerr("解锁失败，任务终止")
 
         return False
-
-
 
     # 6. 设置初始位姿并等待 AMCL 收敛
 
@@ -1023,8 +876,6 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
         initial_pose_pub.publish(pose_msg)
 
         rospy.loginfo(f"已发布初始位姿: ({start_x}, {start_y})")
-
-
 
         # 等待 TF map->base_link 可用（AMCL收敛的标志）
 
@@ -1051,14 +902,11 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
                 rospy.sleep(0.5)
 
         if not map_ready:
-
             rospy.logwarn("⚠️ AMCL 收敛超时，继续尝试导航...")
 
     else:
 
         rospy.sleep(2.0)  # 没有初始位姿时短暂等待
-
-
 
     # 7. 执行导航（带重试）
 
@@ -1066,19 +914,16 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
 
     for attempt in range(3):
 
-        rospy.loginfo(f"导航尝试 {attempt+1}/3 ...")
+        rospy.loginfo(f"导航尝试 {attempt + 1}/3 ...")
 
         success = controller.move_to_goal(target_x, target_y, timeout=120.0)
 
         if success:
-
             break
 
-        rospy.logwarn(f"导航尝试 {attempt+1} 失败，{'重试中...' if attempt < 2 else '放弃'}")
+        rospy.logwarn(f"导航尝试 {attempt + 1} 失败，{'重试中...' if attempt < 2 else '放弃'}")
 
         rospy.sleep(2.0)
-
-
 
     if success:
 
@@ -1099,13 +944,9 @@ def run_ugv_mission(target_x, target_y, start_x=None, start_y=None):
     return success
 
 
-
-
-
 # ================== 轻量返航接口（仅修正返航部分）==================
 
 def navigate_back_to_start(target_x, target_y, timeout=90.0):
-
     """
 
     轻量返航：复用现有导航栈，带子目标切换。
@@ -1122,11 +963,7 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
     """
 
-
-
     rospy.loginfo(f"Returning to start: ({target_x:.2f}, {target_y:.2f})")
-
-
 
     # ===== 新增：返航终点可达性预检查（解决终点在膨胀区问题）=====
 
@@ -1144,15 +981,14 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
             if cost >= 100:
 
-                rospy.logwarn(f"返航终点 ({target_x:.2f}, {target_y:.2f}) 在障碍物/膨胀区内(cost={cost})，搜索附近可达点...")
+                rospy.logwarn(
+                    f"返航终点 ({target_x:.2f}, {target_y:.2f}) 在障碍物/膨胀区内(cost={cost})，搜索附近可达点...")
 
                 found = False
 
-                for r in [0.3, 0.5, 0.8, 1.0, 1.5, 2.0]:
+                for r in [0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0]:
 
-                    for angle in [0, math.pi/4, math.pi/2, 3*math.pi/4, math.pi,
-
-                                  -math.pi/4, -math.pi/2, -3*math.pi/4]:
+                    for angle in np.linspace(0, 2*math.pi, 12, endpoint=False):
 
                         tx = target_x + r * math.cos(angle)
 
@@ -1167,7 +1003,6 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
                             c = costmap.data[my * costmap.info.width + mx]
 
                             if c < 100:
-
                                 rospy.loginfo(f"找到返航替代终点: ({tx:.2f}, {ty:.2f})")
 
                                 target_x, target_y = tx, ty
@@ -1177,11 +1012,9 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
                                 break
 
                     if found:
-
                         break
 
                 if not found:
-
                     rospy.logerr("返航终点附近无可达点，返航失败")
 
                     return False
@@ -1192,8 +1025,6 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
     # ==============================================================
 
-
-
     # 创建move_base客户端
 
     client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
@@ -1201,12 +1032,9 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
     rospy.loginfo("等待 move_base action server (返航)...")
 
     if not client.wait_for_server(rospy.Duration(30.0)):
-
         rospy.logerr("move_base server not available for return (超时30s)")
 
         return False
-
-
 
     # 只在返航开始时清一次 costmap
 
@@ -1226,19 +1054,13 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
         pass
 
-
-
     rospy.sleep(1.0)
-
-
 
     # 子目标管理器
 
-    subgoal_mgr = SubGoalManager(lookahead_distance=2.0, subgoal_tolerance=0.5)
+    subgoal_mgr = SubGoalManager(lookahead_distance=100.0, subgoal_tolerance=0.5)
 
     subgoal_mgr.set_final_goal(target_x, target_y)
-
-
 
     # 获取当前位置
 
@@ -1262,25 +1084,19 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
         start_x, start_y = 0, 0
 
-
-
     # 获取全局路径
 
     path = get_global_path_from_movebase(start_x, start_y, target_x, target_y, tolerance=0.1)
 
     if not path:
-
         rospy.logwarn("返航 make_plan 返回空，降级为直线路径")
 
         path = generate_straight_path(start_x, start_y, target_x, target_y, num_points=30)
 
-
-
     subgoal_mgr.set_global_path(path)
 
-    rospy.loginfo(f"返航路径生成完成，起点({start_x:.2f},{start_y:.2f})，终点({target_x:.2f},{target_y:.2f})，点数{len(path)}")
-
-
+    rospy.loginfo(
+        f"返航路径生成完成，起点({start_x:.2f},{start_y:.2f})，终点({target_x:.2f},{target_y:.2f})，点数{len(path)}")
 
     # 循环追踪子目标
 
@@ -1295,8 +1111,6 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
     abort_retry_count = 0
 
     max_abort_retries = 3
-
-
 
     while not rospy.is_shutdown():
 
@@ -1314,18 +1128,13 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
             continue
 
-
-
         # 获取当前子目标
 
         subgoal = subgoal_mgr.get_current_subgoal(rx, ry)
 
-
-
         # 检查是否到达终点（TF判断）
 
         if subgoal_mgr.is_final_goal_reached(rx, ry):
-
             rospy.loginfo("✅ 返航到达起点（TF判断）")
 
             client.cancel_all_goals()
@@ -1333,8 +1142,6 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
             nav_success = True
 
             break
-
-
 
         # 【关键修正】检查move_base是否报告成功（有时TF有延迟，但move_base已到tolerance内）
 
@@ -1359,14 +1166,11 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
                 abort_retry_count += 1
 
                 if abort_retry_count > max_abort_retries:
-
                     rospy.logerr(f"返航 ABORTED 超过最大重试次数({max_abort_retries})，返航失败")
 
                     client.cancel_all_goals()
 
                     return False
-
-                
 
                 # 第一次ABORTED：清除costmap后重试同一子目标
 
@@ -1396,8 +1200,6 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
                     continue
 
-                
-
                 # 第二次及以上：跳过失败子目标
 
                 rospy.logwarn(f"返航子目标 ({last_subgoal[0]:.2f}, {last_subgoal[1]:.2f}) 再次被拒，尝试跳过...")
@@ -1406,8 +1208,6 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
                 rospy.sleep(0.5)
 
-
-
                 # 【关键修正】更鲁棒的跳过逻辑：0.5m模糊匹配，失败则保守跳过前25%点
 
                 skip_idx = None
@@ -1415,18 +1215,15 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
                 for i, p in enumerate(path):
 
                     if math.hypot(p[0] - last_subgoal[0], p[1] - last_subgoal[1]) < 0.5:
-
                         skip_idx = i
 
                         break
 
-                
-
                 if skip_idx is not None:
 
-                    path = path[skip_idx+1:]
+                    path = path[skip_idx + 1:]
 
-                    rospy.loginfo(f"跳过前{skip_idx+1}个点，剩余{len(path)}个点")
+                    rospy.loginfo(f"跳过前{skip_idx + 1}个点，剩余{len(path)}个点")
 
                 else:
 
@@ -1438,15 +1235,10 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
                     rospy.loginfo(f"未找到匹配点，保守跳过前{skip_n}个点，剩余{len(path)}个点")
 
-                
-
                 if not path:
-
                     rospy.logerr("跳过点后路径为空，返航失败")
 
                     return False
-
-                
 
                 subgoal_mgr.set_global_path(path)
 
@@ -1454,19 +1246,14 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
                 continue
 
-
-
         # 检查超时
 
         if (rospy.Time.now() - start_time).to_sec() > timeout:
-
             rospy.logwarn("返航超时")
 
             client.cancel_all_goals()
 
             break
-
-
 
         # 子目标变化阈值 0.3m，避免频繁cancel/replan
 
@@ -1481,13 +1268,9 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
             sg_dist = math.hypot(subgoal[0] - last_subgoal[0], subgoal[1] - last_subgoal[1])
 
             if sg_dist > 0.3:
-
                 need_update = True
 
-
-
         if need_update and subgoal is not None:
-
             rospy.loginfo(f"返航子目标: ({subgoal[0]:.2f}, {subgoal[1]:.2f})")
 
             client.cancel_all_goals()
@@ -1514,14 +1297,9 @@ def navigate_back_to_start(target_x, target_y, timeout=90.0):
 
             last_subgoal = subgoal
 
-
-
         rate.sleep()
 
-
-
     return nav_success
-
 
 
 # ================== 主函数入口 ==================
@@ -1534,10 +1312,9 @@ if __name__ == "__main__":
 
     targets_json_path = "../script/targets.json"
 
-    #targets_json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "targets.json")
+    # targets_json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "targets.json")
 
     if not os.path.exists(targets_json_path):
-
         print("nav_fail", "未找到坐标文件 targets.json")
 
         exit()
@@ -1551,12 +1328,11 @@ if __name__ == "__main__":
     person_pose = data.get('person')
 
     if not robot_pose or not person_pose:
-
         print("nav_fail", "坐标文件中缺少车或人的位置信息")
 
         exit()
 
-    offset_x = -0.5
+    offset_x = 0.0
 
     target_x = person_pose['x'] + offset_x
 
@@ -1587,7 +1363,6 @@ if __name__ == "__main__":
     finally:
 
         if launch_process and launch_process.poll() is None:
-
             launch_process.terminate()
 
             launch_process.wait()
